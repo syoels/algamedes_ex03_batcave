@@ -11,7 +11,7 @@ namespace BatCave.Terrain {
 	    public float floorY = -2.2f;
 	    public float ceilingY = 2.2f;
 		private int smoothingPoints = 40;
-
+		private Spline.ContinuousSpline s = null;
 	    public GameObjectPool terrainPool;
 
 	    /// <summary>
@@ -45,7 +45,6 @@ namespace BatCave.Terrain {
 	    }
 
 	    private Vector2[] GetPoints(bool isCeiling, params TerrainGenerator.TerrainPoint[] terrainPoints) {
-			Debug.Log (terrainPoints.Length);
 	        int index = 0;
 	        var startPoint = terrainPoints[index++];
 	        var endPoint = terrainPoints[index++];
@@ -70,7 +69,12 @@ namespace BatCave.Terrain {
 			Vector2 p2 = new Vector2(endPoint.x, endPoint.GetY(isCeiling));
 			Vector2 p3 = new Vector2(nextPoint.x, nextPoint.GetY(isCeiling));
 			Vector2[] splinePoints = { p1, p2, p3 };
-			Spline.SingleSpline s = new Spline.SingleSpline(splinePoints);
+			if (this.s == null) {
+				Debug.Log ("ONCE?");
+				this.s = new Spline.ContinuousSpline(splinePoints);
+			} else {
+				s.AddControlPoints (splinePoints);
+			}
 
 			// Calculate delta
 			float delta = (endPoint.x - startPoint.x) / (smoothingPoints + 1f);
