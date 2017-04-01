@@ -3,10 +3,10 @@ using System;
 
 namespace BatCave.Spline {
 	public class SingleSpline {
-		private int n;
-		private Vector2[] points;
-		private float[] f_a;
-		private float[] f_b;
+		protected int n;
+		protected Vector2[] points;
+		protected float[] f_a;
+		protected float[] f_b;
 
 	    public SingleSpline(Vector2[] controlPoints) {
 
@@ -16,16 +16,67 @@ namespace BatCave.Spline {
 			// after some considerations, we decide to increase the size by one so the index of the functions 
 			// and there corresponding a's and b's will start from 1 and not 0 and be the same (otherwise we 
 			// would have needed to also change all the x's indexes and it would be less readable).
-			f_a = new float[n+1];
-			f_b = new float[n+1];
+
 			points = new Vector2 [n + 1];
 			points [0] = new Vector2(0f,0f);
 			Array.Copy(controlPoints,0,points, 1, n); //in order to use it later for Value
+
+			calc_f_a_b ();
+	    }
+
+		protected virtual void calc_f_a_b(){
+			// after some considerations, we decide to increase the size by one so the index of the functions 
+			// and there corresponding a's and b's will start from 1 and not 0 and be the same (otherwise we 
+			// would have needed to also change all the x's indexes and it would be less readable).
+			this.n = this.points.Length - 1;
+			f_a = new float[n+1];
+			f_b = new float[n+1];
+
 			float[] a_vals = new float[n + 1]; //same size for index readabilty - a_vals[0] is never used
 			float[] b_vals = new float[n + 1];
 			float[] c_vals = new float[n];
 			float[] d_vals = new float[n + 1];
 
+			prepThomasMat (a_vals, b_vals, c_vals, d_vals);
+
+			//Thomas Algorithm
+			float[] c_tag = new float[n];
+			float[] d_tag = new float[n + 1];
+			float[] k_vals = new float[n + 1];
+
+			calc_c_d_vals ( a_vals,  b_vals,  c_vals,  d_vals, c_tag,  d_tag);
+			calc_k_vals (c_tag, d_tag, k_vals);
+
+			//caculating the f_a and f_b
+			for (int i = 1; i <= n; i++) {
+				f_a [i] = k_vals [i - 1] * (points [i].x - points [i - 1].x) - (points [i].y - points [i - 1].y);
+				f_b [i] = -k_vals [i] * (points [i].x - points [i - 1].x) + (points [i].y - points [i - 1].y);
+			}
+		}
+
+		virtual protected void calc_c_d_vals(
+			float[] a_vals, float[] b_vals, float[] c_vals, float[] d_vals, 
+			float[] c_tag, float[] d_tag){
+			// calculating c_tag and d_tag
+			c_tag [0] = c_vals [0] / b_vals [0];
+			d_tag [0] = d_vals [0] / b_vals [0];
+
+			for (int i = 1; i < n; i++) {
+				c_tag [i] = c_vals [i] / (b_vals [i] - a_vals [i]);
+				d_tag [i] = (d_vals [i] - a_vals [i] * d_tag [i - 1]) / (b_vals [i] - a_vals [i] * c_tag [i - 1]);
+			}
+			d_tag [n] = (d_vals [n] - a_vals [n] * d_tag [n - 1]) / (b_vals [n] - a_vals [n] * c_tag [n - 1]);
+
+		}
+		virtual protected void calc_k_vals(float[] c_tag, float[] d_tag, float[] k_vals){
+			//calculating the k_vals
+			k_vals[n] = d_tag[n];
+			for (int i = n - 1; i >= 0; i--) {
+				k_vals [i] = d_tag [i] - c_tag [i] * k_vals [i + 1];
+			}
+		} 
+
+		virtual protected void prepThomasMat(float[] a_vals, float[] b_vals, float[] c_vals, float[] d_vals){
 			//using the first equation:
 			b_vals [0] = 2f / (points [1].x - points [0].x);
 			c_vals [0] = 1f / (points [1].x - points [0].x);
@@ -37,8 +88,8 @@ namespace BatCave.Spline {
 				b_vals [i] = 2f * (1f / (points [i].x - points [i - 1].x) + 1f / (points [i + 1].x - points [i].x));
 				c_vals [i] = 1f / (points [i + 1].x - points [i].x);
 				d_vals [i] = 3f * (
-				    (points [i].y - points [i - 1].y) / Mathf.Pow ((points [i].x - points [i - 1].x), 2f) +
-				    (points [i + 1].y - points [i].y) / Mathf.Pow ((points [i + 1].x - points [i].x), 2f));
+					(points [i].y - points [i - 1].y) / Mathf.Pow ((points [i].x - points [i - 1].x), 2f) +
+					(points [i + 1].y - points [i].y) / Mathf.Pow ((points [i + 1].x - points [i].x), 2f));
 			}
 
 			//using the third equation
@@ -46,39 +97,13 @@ namespace BatCave.Spline {
 			b_vals [n] = 2f / (points [n].x - points [n - 1].x);
 			d_vals [n] = 3f * (points [n].y - points [n - 1].y) / Mathf.Pow ((points [n].x - points [n - 1].x), 2f);
 
-			//Thomas Algorithm
-			float[] c_tag = new float[n];
-			float[] d_tag = new float[n + 1];
-			float[] k_vals = new float[n + 1];
-
-			// calculating c_tag and d_tag
-			c_tag [0] = c_vals [0] / b_vals [0];
-			d_tag [0] = d_vals [0] / b_vals [0];
-
-			for (int i = 1; i < n; i++) {
-				c_tag [i] = c_vals [i] / (b_vals [i] - a_vals [i]);
-				d_tag [i] = (d_vals [i] - a_vals [i] * d_tag [i - 1]) / (b_vals [i] - a_vals [i] * c_tag [i - 1]);
-			}
-			d_tag [n] = (d_vals [n] - a_vals [n] * d_tag [n - 1]) / (b_vals [n] - a_vals [n] * c_tag [n - 1]);
-
-			//calculating the k_vals
-			k_vals[n] = d_tag[n];
-			for (int i = n - 1; i >= 0; i--) {
-				k_vals [i] = d_tag [i] - c_tag [i] * k_vals [i + 1];
-			}
-
-			//caculating the f_a and f_b
-			for (int i = 1; i <= n; i++) {
-				f_a [i] = k_vals [i - 1] * (points [i].x - points [i - 1].x) - (points [i].y - points [i - 1].y);
-				f_b [i] = -k_vals [i] * (points [i].x - points [i - 1].x) + (points [i].y - points [i - 1].y);
-			}
-	    }
-				
-
+		}
+			
 	    /// <summary>
 	    /// Returns the value of the spline at point X.
 	    /// </summary>
 	    public float Value(float X) {
+
 	        // TODO: Implement: find the polynom f_i that passes at X and calculate
 	        //       f_i(X).
 			int i = this.getIByX(X);
