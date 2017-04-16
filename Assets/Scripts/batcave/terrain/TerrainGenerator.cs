@@ -46,6 +46,8 @@ namespace BatCave.Terrain {
         public float duration = 30f;
         public float prevFloorY;
         public float prevCeilingY;
+        public Bat player = null;
+        public float batIncreaseSpeed = 0.01f; 
 
 
         private readonly ObjectPool<TerrainPoint> terrainPoints = new ObjectPool<TerrainPoint>(5, 5);
@@ -131,13 +133,13 @@ namespace BatCave.Terrain {
                 pointsDistance = Mathf.Max(pointsDistance * disanceDecayRate, minPointsDistance);
                 diffToCaveRatio = Mathf.Clamp(diffToCaveRatio - 4f, 5f, Mathf.Infinity);
                 startTime = Time.time;
+                if (player != null) { player.incrementSpeed(batIncreaseSpeed); }
             }
 
             // Save curr as previous
             prevAvg = slidingAvg;
             prevCeilingY = point.ceilingY;
             prevFloorY = point.floorY;
-
         }
 
 

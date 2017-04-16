@@ -14,12 +14,13 @@ namespace BatCave {
 public class Bat : MonoBehaviour {
     public float xSpeed = 0.1f;
     public float flyYSpeed = 1f;
+    public float batMaxSpeed = 5f;
 
-    // This variable is only compiled when running the game in the editor.
-    // When the game is built for PC or mobile for example, invulnerability will
-    // be disabled automatically because its code is removed by the preprocessor.
+        // This variable is only compiled when running the game in the editor.
+        // When the game is built for PC or mobile for example, invulnerability will
+        // be disabled automatically because its code is removed by the preprocessor.
 #if UNITY_EDITOR
-    [Tooltip("Check this to test terrain generation")]
+        [Tooltip("Check this to test terrain generation")]
     public bool isInvulnerable;
 #endif
 
@@ -140,6 +141,10 @@ public class Bat : MonoBehaviour {
 
     private void OnTouchUp(PointerEventData e) {
         FlyUp = false;
+    }
+
+    public void incrementSpeed(float amount) {
+            this.xSpeed = Mathf.Min( this.xSpeed + amount, batMaxSpeed);
     }
 }
 }
