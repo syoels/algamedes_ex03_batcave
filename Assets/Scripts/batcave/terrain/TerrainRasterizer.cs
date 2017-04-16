@@ -10,7 +10,7 @@ namespace BatCave.Terrain {
 	public class TerrainRasterizer : MonoSingleton<TerrainRasterizer> {
 	    public float floorY = -2.2f;
 	    public float ceilingY = 2.2f;
-		private int smoothingPoints = 40;
+		private int smoothingPoints = 0; //TODO: change to bigger e.g. ~40
 		private Spline.ContinuousSpline s = null;
 	    public GameObjectPool terrainPool;
 
