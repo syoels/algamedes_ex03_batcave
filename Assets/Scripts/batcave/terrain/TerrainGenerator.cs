@@ -27,19 +27,25 @@ namespace BatCave.Terrain {
 	    public float maxCeiling = 1.6f;
 	    [Tooltip("The minimal gap that could be created.\n" +
 	        "Make sure this is no less than the height of the bat's collider.")]
-	    public float minGap = 0.5f;
-	    [Tooltip("Minimal distance from point to point")]
-	    public float minDistance = 1f;
-	    [Tooltip("Maximal distance from point to point")]
-	    public float maxDistance = 5f;
+	    public float minGap = 0.95f;
+	    [Tooltip("Distance from point to point")]
+	    public float pointsDistance = 5f;
+        public float minPointsDistance = 1f;
+        public float disanceDecayRate = 0.75f;
 	    [Tooltip("The X position of the first point")]
 	    public float startingX;
         [SerializeField] public Queue<float> midPoints = new Queue<float>();
-        public int midpointsNum = 10;
+        public int midpointsNum = 5;
         public float prevAvg = 0f;
         public bool isUp = true;
-        public float diffToCaveRatio = 20f;
-        public int difficultyToggle = 3;
+        public float diffToCaveRatio = 25f;
+        public int caveDirectionToggle = 4;
+        public int pointsCounter = 0;
+        public float startTime;
+        public float smoothStepTime;
+        public float duration = 30f;
+        public float prevFloorY;
+        public float prevCeilingY;
 
 
         private readonly ObjectPool<TerrainPoint> terrainPoints = new ObjectPool<TerrainPoint>(5, 5);
@@ -53,16 +59,16 @@ namespace BatCave.Terrain {
 	        return instance._GetNextPoint(difficulty);
 	    }
 
-	    private TerrainPoint _GetNextPoint(int difficulty) {
+        void Start()
+        {
+            startTime = Time.time;
+            prevFloorY = minFloor;
+            prevCeilingY = maxCeiling;
+        }
+
+        private TerrainPoint _GetNextPoint(int difficulty) {
 	        var point = terrainPoints.Borrow();
 	        point.difficulty = difficulty;
-
-	        // EXERCISE: Difficulty should affect distance from previous point,
-	        //           height differences from previous point (slope) and gap
-	        //           between floor and ceiling.
-	        //           Need to take into account previous terrain to make sure the
-	        //           terrain is passable: don’t create tunnels that are too
-	        //           narrow or slopes that are too steep for the bat to maneuver.
 
 	        if (difficulty == 0) {
                 // Create a nice random tunnel that is very wide.
@@ -73,15 +79,13 @@ namespace BatCave.Terrain {
                 point.ceilingY = Random.Range(maxCeiling - 0.5f, maxCeiling);
 	        } else {
                 this.setYByDifficulty(ref point, difficulty);
-                //point.floorY = Random.Range(minFloor, maxCeiling - minGap);
-                //point.ceilingY = Random.Range(point.floorY + minGap, maxCeiling);
             }
-	        // Choose the distance from the previous point.
-	        point.distanceFromPrevious = Random.Range(minDistance, maxDistance);
+            // Choose the distance from the previous point.
+            point.distanceFromPrevious = pointsDistance + Random.Range(0f, 1f);
 
-	        // Set the point at the correct position based on the previous point's
-	        // position and the distance from it that we just set.
-	        if (Game.instance.terrainPoints.Count == 0) {
+            // Set the point at the correct position based on the previous point's
+            // position and the distance from it that we just set.
+            if (Game.instance.terrainPoints.Count == 0) {
 	            point.x = startingX;
 	        } else {
 	            float previousX = Game.instance.terrainPoints[Game.instance.terrainPoints.Count - 1].x;
@@ -92,19 +96,21 @@ namespace BatCave.Terrain {
 	    }
 
         private void setYByDifficulty(ref TerrainPoint point, int difficulty) {
+            pointsCounter++; 
 
+            smoothStepTime = (Time.time - startTime) / duration;
             if (isUp)
             {
-                // Narrow cave up towards the ceiling using last points avg
-                point.floorY = Random.Range((minFloor + (prevAvg + 0.1f) * 2f) / 3f + difficulty / diffToCaveRatio, maxCeiling - minGap);
-                point.floorY = Mathf.Clamp(point.floorY, minFloor, maxCeiling - minGap);
+                // Narrow cave up towards the last points avg
+                float nextFloorYGoal = Mathf.Clamp(prevAvg + difficulty / diffToCaveRatio, minFloor, maxCeiling - minGap);
+                point.floorY = Mathf.SmoothStep(prevFloorY, nextFloorYGoal, smoothStepTime);
+                float floorDiff = Mathf.Abs(prevFloorY - point.floorY);
                 point.ceilingY = Random.Range(point.floorY + minGap, maxCeiling);
             }
             else {
-
-                // Narrow cave down towards the floor using last points avg
-                point.ceilingY = Random.Range(minFloor + minGap, (maxCeiling + (prevAvg - 0.1f) * 2f) / 3f - difficulty / diffToCaveRatio);
-                point.ceilingY = Mathf.Clamp(point.floorY, minFloor + minGap, maxCeiling);
+                // Narrow cave down towards the last points avg
+                float nextCeilingYGoal = Mathf.Clamp(prevAvg - difficulty / diffToCaveRatio, minFloor + minGap, maxCeiling);
+                point.ceilingY = Mathf.SmoothStep(prevAvg, nextCeilingYGoal, smoothStepTime);
                 point.floorY = Random.Range(minFloor, point.ceilingY - minGap);
             }
 
@@ -114,26 +120,23 @@ namespace BatCave.Terrain {
             if (midPoints.Count() > midpointsNum)
             {
                 midPoints.Dequeue();
-                Debug.Log("removing");
             }
-            Debug.Log(midPoints.Count().ToString());
-            var allAvgs = "";
-            for (int i = 0; i < midPoints.Count(); i++){
-                allAvgs += (midPoints.ToArray()[i].ToString() + ", ");
-            }
-            Debug.Log(allAvgs);
             float slidingAvg = midPoints.Average();
 
-            // Toggle up / down direction
-            if (difficulty % difficultyToggle == 0) {
-                Debug.Log("Changing Direction");
+            // Toggle up / down direction, make level harder and faster-changing
+            if (pointsCounter % caveDirectionToggle == 0)
+            {
                 isUp = !isUp;
-                difficultyToggle = (int)Mathf.Clamp((int)difficultyToggle - 1, 1, Mathf.Infinity);
+                caveDirectionToggle = (int)Mathf.Clamp((int)caveDirectionToggle - 1, 1, Mathf.Infinity);
+                pointsDistance = Mathf.Max(pointsDistance * disanceDecayRate, minPointsDistance);
                 diffToCaveRatio = Mathf.Clamp(diffToCaveRatio - 4f, 5f, Mathf.Infinity);
+                startTime = Time.time;
             }
 
-            // Save curr avg as previous avg
+            // Save curr as previous
             prevAvg = slidingAvg;
+            prevCeilingY = point.ceilingY;
+            prevFloorY = point.floorY;
 
         }
 

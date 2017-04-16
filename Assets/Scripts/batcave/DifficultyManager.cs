@@ -9,10 +9,10 @@ namespace BatCave
     public class DifficultyManager : MonoSingleton<DifficultyManager>
     {
 
-        private static int _pointsCounter = 0;
-        private static int _pointsPerLevel = 7;
-        private static int _currLevel = 1;
-        private static int _levelChageFreq = 2;
+        public static int pointsCounter = 0;
+        public static int pointsPerLevel = 7;
+        public static int currLevel = 1;
+        public static int levelChageFreq = 5;
 
         public override void Init()
         {
@@ -24,23 +24,21 @@ namespace BatCave
             // Always return 0 until the game starts.
             if (!Game.instance.HasStarted) return 0;
 
-            return _currLevel /* + Random.Range(-1, 2) */;
+            return currLevel + (int)Random.Range(-1, 2);
         }
 
         private void OnPlayerPassedPoint(TerrainGenerator.TerrainPoint point)
         {
-            // EXERCISE: Process player success level.
-            if (++_pointsCounter > _pointsPerLevel)
+            // level up
+            if (++pointsCounter > pointsPerLevel)
             {
-                _pointsCounter = 0;
-                _currLevel++;
-                Debug.Log("Level up: " + _currLevel.ToString());
+                pointsCounter = 0;
+                currLevel++;
 
-                //every _levelChageFreq levels accelarate level changing rate
-                if (_currLevel % _levelChageFreq == 0)
+                //every levelChageFreq levels accelarate level changing rate
+                if (currLevel % levelChageFreq == 0)
                 {
-                    _pointsPerLevel = (int)Mathf.Clamp((float)_pointsPerLevel - 1f, 3f, Mathf.Infinity);
-                    Debug.Log(_pointsPerLevel.ToString() + " points per level");
+                    pointsPerLevel = (int)Mathf.Clamp((float)pointsPerLevel - 1f, 3f, Mathf.Infinity);
                 }
             }
         }
